@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
 # Database imports
-from superbase_database import get_db, init_db, User, Document
+from supabase_database import get_db, init_db, User, Document
 
 # RAG imports
 from langchain_community.document_loaders import PyPDFLoader
@@ -385,4 +385,5 @@ async def startup():
     print("3. Upload:   POST /upload  (Bearer token + collection_name)")
     print("4. Query:    POST /query   (Bearer token + collection_name + question)")
     print("\nDocs: http://127.0.0.1:8000/docs")
+
     print("="*55 + "\n")
