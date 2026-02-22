@@ -1,1 +1,26 @@
+# Environment & Secrets
+.env
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environment
+venv/
+venv2/
+
+# Local uploads (temporary files)
+uploads/
+
+# Old FAISS files (pgvector use ho raha ab)
+*.pkl
+*.faiss
+vector_db/
+
+# Database
+data.db
+
+# OS files
+.DS_Store
+Thumbs.db
