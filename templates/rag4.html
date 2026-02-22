@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocMind — Multi-Tenant RAG</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3d;
+      --accent: #7c6af7;
+      --accent2: #f76a8a;
+      --accent3: #6af7c8;
+      --text: #e8e8f0;
+      --text2: #8888aa;
+      --text3: #5555770;
+      --success: #4ade80;
+      --error: #f87171;
+      --warning: #fbbf24;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb1 { width: 400px; height: 400px; background: rgba(124,106,247,0.12); top: -100px; right: -100px; }
+    .orb2 { width: 300px; height: 300px; background: rgba(247,106,138,0.08); bottom: -50px; left: -50px; }
+    .orb3 { width: 200px; height: 200px; background: rgba(106,247,200,0.06); top: 40%; left: 40%; }
+
+    /* Layout */
+    .app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      padding: 0 24px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .logo-sub { font-size: 10px; color: var(--text2); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+
+    .nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text2);
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      font-family: 'DM Mono', monospace;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); border-color: var(--border); }
+    .nav-item.active {
+      background: rgba(124,106,247,0.15);
+      color: var(--accent);
+      border-color: rgba(124,106,247,0.3);
+    }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-bottom {
+      padding: 20px 12px 0;
+      border-top: 1px solid var(--border);
+    }
+    .user-badge {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .user-avatar {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: bold; color: white;
+      font-family: 'Syne', sans-serif;
+    }
+    .user-name { font-size: 12px; color: var(--text); }
+    .user-role { font-size: 10px; color: var(--text2); }
+    .logout-btn {
+      margin-top: 8px;
+      width: 100%;
+      padding: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--error);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      transition: all 0.2s;
+    }
+    .logout-btn:hover { background: rgba(248,113,113,0.1); border-color: var(--error); }
+
+    /* Main content */
+    .main {
+      margin-left: 240px;
+      flex: 1;
+      padding: 32px;
+      min-height: 100vh;
+    }
+
+    /* Page header */
+    .page-header { margin-bottom: 32px; }
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .page-subtitle { color: var(--text2); font-size: 13px; margin-top: 6px; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(124,106,247,0.3); }
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Auth pages */
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .auth-logo-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .auth-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .auth-toggle {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text2);
+    }
+    .auth-toggle span {
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* Form elements */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; }
+    .form-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text2); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      width: 100%;
+      padding: 12px;
+    }
+    .btn-primary:hover { background: #6a58e8; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .btn-outline:hover { background: rgba(124,106,247,0.1); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+    .btn-danger:hover { background: rgba(248,113,113,0.1); }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      border: 1px solid;
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast-success { background: rgba(74,222,128,0.1); border-color: var(--success); color: var(--success); }
+    .toast-error { background: rgba(248,113,113,0.1); border-color: var(--error); color: var(--error); }
+    .toast-info { background: rgba(124,106,247,0.1); border-color: var(--accent); color: var(--accent); }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124,106,247,0.05);
+    }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .upload-text { font-size: 14px; color: var(--text2); }
+    .upload-text strong { color: var(--accent); }
+    .file-selected {
+      margin-top: 12px;
+      padding: 8px 14px;
+      background: rgba(124,106,247,0.1);
+      border: 1px solid rgba(124,106,247,0.3);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--accent);
+      display: inline-block;
+    }
+
+    /* Collections grid */
+    .collections-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .collection-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .collection-card:hover {
+      border-color: var(--accent);
+      background: rgba(124,106,247,0.05);
+      transform: translateY(-2px);
+    }
+    .collection-card.active { border-color: var(--accent); background: rgba(124,106,247,0.1); }
+    .collection-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .collection-date { font-size: 11px; color: var(--text2); }
+    .collection-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: rgba(106,247,200,0.1);
+      border: 1px solid rgba(106,247,200,0.3);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--accent3);
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* Chat */
+    .chat-container { display: flex; gap: 20px; height: calc(100vh - 160px); }
+    .chat-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-header-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+    .chat-header-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .message { display: flex; gap: 12px; max-width: 80%; }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message-avatar {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .message.user .message-avatar { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+    .message.ai .message-avatar { background: var(--surface2); border: 1px solid var(--border); }
+    .message-content {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .message.user .message-content {
+      background: rgba(124,106,247,0.2);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: var(--text);
+    }
+    .message.ai .message-content {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 12px; align-items: flex-end;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      resize: none;
+      max-height: 120px;
+      transition: border-color 0.2s;
+    }
+    .chat-input:focus { border-color: var(--accent); }
+    .send-btn {
+      width: 42px; height: 42px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .send-btn:hover { background: #6a58e8; transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); margin-top: 4px; }
+    .stat-accent { color: var(--accent); }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-text { color: var(--text2); font-size: 14px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Thinking animation */
+    .thinking { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+    .thinking-dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /* Select */
+    .form-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+    .form-select:focus { border-color: var(--accent); }
+    .form-select option { background: var(--surface2); }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      animation: progressAnim 2s ease-in-out infinite;
+    }
+    @keyframes progressAnim { 0% { width: 0%; } 50% { width: 70%; } 100% { width: 100%; } }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 16px; }
+      .chat-container { flex-direction: column; height: auto; }
+      .chat-sidebar { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div id="toast-container" class="toast-container"></div>
+<div id="app"></div>
+
+<script>
+  // ===== CONFIG =====
+  const API_BASE = 'http://127.0.0.1:8000'; // Change this when deploying
+
+  // ===== STATE =====
+  let state = {
+    page: 'auth',
+    authMode: 'login',
+    token: localStorage.getItem('rag_token') || null,
+    user: JSON.parse(localStorage.getItem('rag_user') || 'null'),
+    collections: [],
+    selectedCollection: null,
+    messages: [],
+    loading: false,
+    uploadFile: null,
+  };
+
+  // ===== API =====
+  async function api(endpoint, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+
+    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Something went wrong' }));
+      throw new Error(err.detail || 'Request failed');
+    }
+    return res.json().catch(() => ({}));
+  }
+
+  async function apiForm(endpoint, formData) {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(err.detail || 'Upload failed');
+    }
+    return res.json();
+  }
+
+  // ===== TOAST =====
+  function toast(msg, type = 'info') {
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // ===== RENDER =====
+  function render() {
+    const app = document.getElementById('app');
+    if (!state.token || !state.user) {
+      app.innerHTML = renderAuth();
+    } else {
+      app.innerHTML = `
+        <div class="app">
+          ${renderSidebar()}
+          <div class="main">${renderPage()}</div>
+        </div>
+      `;
+    }
+    attachEvents();
+  }
+
+  function renderAuth() {
+    if (state.authMode === 'login') {
+      return `
+        <div class="auth-container">
+          <div class="auth-box">
+            <div class="auth-logo">
+              <div class="auth-logo-text">DocMind</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;letter-spacing:2px;">MULTI-TENANT RAG</div>
+            </div>
+            <div class="auth-title">Welcome back</div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input class="form-input" id="login-username" placeholder="your_username" autocomplete="username"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input class="form-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password"/>
+            </div>
+            <button class="btn btn-primary" id="login-btn">
+              <span>Sign In</span>
+            </button>
+            <div class="auth-toggle">
+              Don't have an account? <span id="toggle-auth">Register here</span>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      return `
+        <div class="auth-container">
+          <div class="auth-box">
+            <div class="auth-logo">
+              <div class="auth-logo-text">DocMind</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;letter-spacing:2px;">MULTI-TENANT RAG</div>
+            </div>
+            <div class="auth-title">Create account</div>
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input class="form-input" id="reg-fullname" placeholder="Anshu Kumari"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input class="form-input" id="reg-username" placeholder="anshu09"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="form-input" id="reg-email" type="email" placeholder="anshu@example.com"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input class="form-input" id="reg-password" type="password" placeholder="••••••••"/>
+            </div>
+            <button class="btn btn-primary" id="register-btn">Create Account</button>
+            <div class="auth-toggle">
+              Already have an account? <span id="toggle-auth">Sign in</span>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  function renderSidebar() {
+    const navItems = [
+      { id: 'dashboard', icon: '⬡', label: 'Dashboard' },
+      { id: 'upload', icon: '↑', label: 'Upload PDF' },
+      { id: 'collections', icon: '◫', label: 'Collections' },
+      { id: 'chat', icon: '◈', label: 'Query / Chat' },
+    ];
+    return `
+      <div class="sidebar">
+        <div class="logo">
+          <div class="logo-text">DocMind</div>
+          <div class="logo-sub">RAG System</div>
+        </div>
+        <nav class="nav">
+          ${navItems.map(item => `
+            <div class="nav-item ${state.page === item.id ? 'active' : ''}" data-page="${item.id}">
+              <span class="nav-icon">${item.icon}</span>
+              ${item.label}
+            </div>
+          `).join('')}
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="user-badge">
+            <div class="user-avatar">${state.user?.username?.[0]?.toUpperCase() || 'U'}</div>
+            <div>
+              <div class="user-name">${state.user?.username || 'User'}</div>
+              <div class="user-role">authenticated</div>
+            </div>
+          </div>
+          <button class="logout-btn" id="logout-btn">⬡ Sign Out</button>
+        </div>
+      </div>`;
+  }
+
+  function renderPage() {
+    switch(state.page) {
+      case 'dashboard': return renderDashboard();
+      case 'upload': return renderUpload();
+      case 'collections': return renderCollections();
+      case 'chat': return renderChat();
+      default: return renderDashboard();
+    }
+  }
+
+  function renderDashboard() {
+    const cols = state.collections.length;
+    return `
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">Welcome back, ${state.user?.username} — here's your overview</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Collections</div>
+          <div class="stat-value stat-accent">${cols}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Status</div>
+          <div class="stat-value" style="font-size:16px;margin-top:8px;color:var(--accent3)">● Online</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Vector DB</div>
+          <div class="stat-value" style="font-size:14px;margin-top:8px;color:var(--text2)">pgvector</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Quick Actions</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-outline" data-page="upload">↑ Upload PDF</button>
+          <button class="btn btn-outline" data-page="chat">◈ Start Query</button>
+          <button class="btn btn-outline" data-page="collections">◫ View Collections</button>
+        </div>
+      </div>
+      ${cols > 0 ? `
+      <div class="card">
+        <div class="card-title">Recent Collections</div>
+        <div class="collections-grid">
+          ${state.collections.slice(0,3).map(c => `
+            <div class="collection-card" data-collection="${c.collection_name}" data-goto="chat">
+              <div class="collection-badge">PDF</div>
+              <div class="collection-name">${c.collection_name}</div>
+              <div class="collection-date">${new Date(c.created_at).toLocaleDateString()}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : `
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">◫</div>
+          <div class="empty-text">No collections yet — upload a PDF to get started</div>
+          <br/>
+          <button class="btn btn-primary" style="width:auto;margin-top:8px;" data-page="upload">Upload your first PDF</button>
+        </div>
+      </div>`}`;
+  }
+
+  function renderUpload() {
+    return `
+      <div class="page-header">
+        <div class="page-title">Upload PDF</div>
+        <div class="page-subtitle">Upload a PDF to create a new knowledge collection</div>
+      </div>
+      <div class="card" style="max-width:560px;">
+        <div class="card-title">New Collection</div>
+        <div class="form-group">
+          <label class="form-label">Collection Name</label>
+          <input class="form-input" id="collection-name" placeholder="my_document (no spaces)" />
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;">Use underscores instead of spaces</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PDF File</label>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" accept=".pdf"/>
+            <div class="upload-icon">⬡</div>
+            <div class="upload-text">Drop PDF here or <strong>click to browse</strong></div>
+            <div id="file-name" style="display:none;" class="file-selected"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="upload-btn" ${state.loading ? 'disabled' : ''}>
+          ${state.loading ? '<span class="spinner"></span> Processing...' : '↑ Upload & Process'}
+        </button>
+        ${state.loading ? '<div class="progress-bar"><div class="progress-fill"></div></div>' : ''}
+      </div>`;
+  }
+
+  function renderCollections() {
+    return `
+      <div class="page-header">
+        <div class="page-title">My Collections</div>
+        <div class="page-subtitle">${state.collections.length} collection${state.collections.length !== 1 ? 's' : ''} found</div>
+      </div>
+      ${state.collections.length === 0 ? `
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-icon">◫</div>
+            <div class="empty-text">No collections yet</div>
+            <br/>
+            <button class="btn btn-primary" style="width:auto;" data-page="upload">Upload PDF</button>
+          </div>
+        </div>` : `
+        <div class="collections-grid">
+          ${state.collections.map(c => `
+            <div class="collection-card ${state.selectedCollection === c.collection_name ? 'active' : ''}"
+                 data-collection="${c.collection_name}" data-goto="chat">
+              <div class="collection-badge">PDF • ACTIVE</div>
+              <div class="collection-name">${c.collection_name}</div>
+              <div class="collection-date">Created: ${new Date(c.created_at).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</div>
+              <div style="margin-top:12px;">
+                <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" data-collection="${c.collection_name}" data-goto="chat">
+                  ◈ Query this
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>`}`;
+  }
+
+  function renderChat() {
+    const hasCollections = state.collections.length > 0;
+    return `
+      <div class="page-header">
+        <div class="page-title">Query / Chat</div>
+        <div class="page-subtitle">Ask questions from your documents</div>
+      </div>
+      <div class="chat-container">
+        <div class="chat-sidebar">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Select Collection</div>
+            ${hasCollections ? `
+              <select class="form-select" id="collection-select">
+                <option value="">-- Choose --</option>
+                ${state.collections.map(c => `
+                  <option value="${c.collection_name}" ${state.selectedCollection === c.collection_name ? 'selected' : ''}>
+                    ${c.collection_name}
+                  </option>
+                `).join('')}
+              </select>` : `
+              <div style="font-size:12px;color:var(--text2);">No collections. Upload a PDF first.</div>
+              <button class="btn btn-outline" style="margin-top:12px;font-size:11px;padding:8px;" data-page="upload">Upload PDF</button>
+            `}
+          </div>
+          ${state.selectedCollection ? `
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Active</div>
+            <div style="font-size:13px;color:var(--accent3);">● ${state.selectedCollection}</div>
+          </div>` : ''}
+          ${state.messages.length > 0 ? `
+          <button class="btn btn-danger" style="width:100%;font-size:12px;padding:8px;" id="clear-chat">
+            Clear Chat
+          </button>` : ''}
+        </div>
+        <div class="chat-main">
+          <div class="chat-header">
+            <div class="chat-header-dot"></div>
+            <div class="chat-header-title">
+              ${state.selectedCollection ? state.selectedCollection : 'Select a collection to begin'}
+            </div>
+          </div>
+          <div class="chat-messages" id="chat-messages">
+            ${state.messages.length === 0 ? `
+              <div class="empty-state" style="padding:40px 20px;">
+                <div class="empty-icon">◈</div>
+                <div class="empty-text">
+                  ${state.selectedCollection ? 'Ask anything about your document' : 'Select a collection from the left panel'}
+                </div>
+              </div>` :
+              state.messages.map(m => `
+                <div class="message ${m.role}">
+                  <div class="message-avatar">${m.role === 'user' ? '↑' : '◈'}</div>
+                  <div class="message-content">${m.content}</div>
+                </div>
+              `).join('')
+            }
+            ${state.loading ? `
+              <div class="message ai">
+                <div class="message-avatar">◈</div>
+                <div class="message-content">
+                  <div class="thinking">
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                  </div>
+                </div>
+              </div>` : ''}
+          </div>
+          <div class="chat-input-area">
+            <textarea class="chat-input" id="chat-input" placeholder="${state.selectedCollection ? 'Ask a question...' : 'Select a collection first...'}"
+              rows="1" ${!state.selectedCollection || state.loading ? 'disabled' : ''}></textarea>
+            <button class="send-btn" id="send-btn" ${!state.selectedCollection || state.loading ? 'disabled' : ''}>→</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ===== EVENTS =====
+  function attachEvents() {
+    // Nav items
+    document.querySelectorAll('[data-page]').forEach(el => {
+      el.addEventListener('click', () => { state.page = el.dataset.page; render(); });
+    });
+
+    // Collection click → go to chat
+    document.querySelectorAll('[data-goto="chat"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.selectedCollection = el.dataset.collection;
+        state.page = 'chat';
+        render();
+      });
+    });
+
+    // Auth toggle
+    const toggleBtn = document.getElementById('toggle-auth');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        state.authMode = state.authMode === 'login' ? 'register' : 'login';
+        render();
+      });
+    }
+
+    // Login
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+
+    // Register
+    const regBtn = document.getElementById('register-btn');
+    if (regBtn) regBtn.addEventListener('click', handleRegister);
+
+    // Enter key on login
+    document.querySelectorAll('.form-input').forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          if (state.authMode === 'login') handleLogin();
+          else handleRegister();
+        }
+      });
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+    // File input
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          state.uploadFile = file;
+          const nameEl = document.getElementById('file-name');
+          nameEl.textContent = `📄 ${file.name}`;
+          nameEl.style.display = 'block';
+        }
+      });
+    }
+
+    // Drag and drop
+    const zone = document.getElementById('upload-zone');
+    if (zone) {
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.pdf')) {
+          state.uploadFile = file;
+          const nameEl = document.getElementById('file-name');
+          nameEl.textContent = `📄 ${file.name}`;
+          nameEl.style.display = 'block';
+        } else { toast('Only PDF files allowed', 'error'); }
+      });
+    }
+
+    // Upload
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) uploadBtn.addEventListener('click', handleUpload);
+
+    // Collection select
+    const colSelect = document.getElementById('collection-select');
+    if (colSelect) {
+      colSelect.addEventListener('change', () => {
+        state.selectedCollection = colSelect.value || null;
+        state.messages = [];
+        render();
+      });
+    }
+
+    // Send message
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) sendBtn.addEventListener('click', handleQuery);
+
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuery(); }
+      });
+    }
+
+    // Clear chat
+    const clearBtn = document.getElementById('clear-chat');
+    if (clearBtn) clearBtn.addEventListener('click', () => { state.messages = []; render(); });
+
+    // Scroll chat to bottom
+    const chatMsgs = document.getElementById('chat-messages');
+    if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+  }
+
+  // ===== HANDLERS =====
+  async function handleLogin() {
+    const username = document.getElementById('login-username')?.value?.trim();
+    const password = document.getElementById('login-password')?.value;
+    if (!username || !password) { toast('Fill in all fields', 'error'); return; }
+
+    const btn = document.getElementById('login-btn');
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+    btn.disabled = true;
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+      formData.append('password', password);
+      const res = await fetch(`${API_BASE}/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      const data = await res.json();
+      state.token = data.access_token;
+      state.user = { username };
+      localStorage.setItem('rag_token', state.token);
+      localStorage.setItem('rag_user', JSON.stringify(state.user));
+      toast(`Welcome back, ${username}!`, 'success');
+      state.page = 'dashboard';
+      await loadCollections();
+      render();
+    } catch (e) {
+      toast(e.message || 'Login failed', 'error');
+      btn.innerHTML = '<span>Sign In</span>';
+      btn.disabled = false;
+    }
+  }
+
+  async function handleRegister() {
+    const full_name = document.getElementById('reg-fullname')?.value?.trim();
+    const username = document.getElementById('reg-username')?.value?.trim();
+    const email = document.getElementById('reg-email')?.value?.trim();
+    const password = document.getElementById('reg-password')?.value;
+
+    if (!full_name || !username || !email || !password) { toast('Fill in all fields', 'error'); return; }
+
+    const btn = document.getElementById('register-btn');
+    btn.innerHTML = '<span class="spinner"></span> Creating...';
+    btn.disabled = true;
+
+    try {
+      await api('/register', {
+        method: 'POST',
+        body: JSON.stringify({ username, password, full_name, email })
+      });
+      toast('Account created! Please sign in.', 'success');
+      state.authMode = 'login';
+      render();
+    } catch (e) {
+      toast(e.message || 'Registration failed', 'error');
+      btn.innerHTML = 'Create Account';
+      btn.disabled = false;
+    }
+  }
+
+  function handleLogout() {
+    state.token = null;
+    state.user = null;
+    state.collections = [];
+    state.messages = [];
+    state.selectedCollection = null;
+    localStorage.removeItem('rag_token');
+    localStorage.removeItem('rag_user');
+    toast('Signed out successfully', 'info');
+    render();
+  }
+
+  async function handleUpload() {
+    const collectionName = document.getElementById('collection-name')?.value?.trim();
+    if (!collectionName) { toast('Enter collection name', 'error'); return; }
+    if (collectionName.includes(' ')) { toast('No spaces in collection name — use underscore', 'error'); return; }
+    if (!state.uploadFile) { toast('Select a PDF file', 'error'); return; }
+
+    state.loading = true;
+    render();
+
+    try {
+      const formData = new FormData();
+      formData.append('collection_name', collectionName);
+      formData.append('file', state.uploadFile);
+      await apiForm('/upload', formData);
+      toast(`Collection "${collectionName}" created!`, 'success');
+      state.uploadFile = null;
+      await loadCollections();
+      state.page = 'collections';
+    } catch (e) {
+      toast(e.message || 'Upload failed', 'error');
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function handleQuery() {
+    const input = document.getElementById('chat-input');
+    const question = input?.value?.trim();
+    if (!question || !state.selectedCollection) return;
+
+    input.value = '';
+    state.messages.push({ role: 'user', content: question });
+    state.loading = true;
+    render();
+
+    try {
+      const data = await api('/query', {
+        method: 'POST',
+        body: JSON.stringify({ collection_name: state.selectedCollection, question })
+      });
+      state.messages.push({ role: 'ai', content: data.answer });
+    } catch (e) {
+      state.messages.push({ role: 'ai', content: `Error: ${e.message}` });
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function loadCollections() {
+    if (!state.token) return;
+    try {
+      const data = await api('/my-collections');
+      state.collections = data.collections || [];
+    } catch (e) {
+      state.collections = [];
+    }
+  }
+
+  // ===== INIT =====
+  async function init() {
+    if (state.token && state.user) {
+      await loadCollections();
+      state.page = 'dashboard';
+    }
+    render();
+  }
+
+  init();
+</script>
+</body>
+</html>
