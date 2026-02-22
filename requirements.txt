@@ -15,3 +15,4 @@ langchain-groq
 pypdf
 sentence-transformers
 pgvector
+PyJWT
