@@ -509,7 +509,9 @@ def get_embedding_model():
     if _embedding_model is None:
         print("Loading embedding model...")
         _embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"},  # ← Force CPU
+            encode_kwargs={"normalize_embeddings": True}
         )
         print("Embedding model loaded!")
     return _embedding_model
@@ -779,4 +781,5 @@ async def startup():
     print("4. Query:    POST /query   (Bearer token + collection_name + question)")
     print("\nDocs: http://127.0.0.1:8000/docs")
     print("="*55 + "\n")
+
 
