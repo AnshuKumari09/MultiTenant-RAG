@@ -166,7 +166,8 @@ engine = create_engine(
     max_overflow=10,
     pool_timeout=30,
     pool_pre_ping=True,
-    connect_args={"sslmode": "require"}
+    connect_args={"sslmode": "require"},
+    echo=True
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -206,3 +207,4 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+
