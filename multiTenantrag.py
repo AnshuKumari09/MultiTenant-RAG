@@ -1158,4 +1158,11 @@ async def startup():
     print("Docs: /docs")
     print("="*55 + "\n")
 
+@app.get("/db-test")
+async def db_test(db: Session = Depends(get_db)):
+    try:
+        count = db.query(User).count()
+        return {"db": "connected", "users": count}
+    except Exception as e:
+        return {"db": "FAILED", "error": str(e)}
 
