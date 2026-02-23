@@ -987,27 +987,25 @@ async def root(db: Session = Depends(get_db)):
 
 @app.post("/register", status_code=201)
 async def register_user(user: UserRegister, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    new_user = User(
-        username=user.username,
-        email=user.email,
-        password=pwd_context.hash(user.password),
-        full_name=user.full_name
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    return {
-        "message": "User registered successfully!",
-        "username": new_user.username,
-        "user_id": new_user.id
-    }
+    try:
+        if db.query(User).filter(User.username == user.username).first():
+            raise HTTPException(status_code=400, detail="Username already exists")
+        if db.query(User).filter(User.email == user.email).first():
+            raise HTTPException(status_code=400, detail="Email already registered")
+        new_user = User(
+            username=user.username,
+            email=user.email,
+            password=pwd_context.hash(user.password),
+            full_name=user.full_name
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {"message": "User registered successfully!", "username": new_user.username}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
 
 
 @app.post("/token", response_model=Token)
@@ -1181,3 +1179,4 @@ async def register_debug(user: UserRegister, db: Session = Depends(get_db)):
         return {"success": True, "username": new_user.username}
     except Exception as e:
         return {"success": False, "error": str(e), "type": type(e).__name__}
+
