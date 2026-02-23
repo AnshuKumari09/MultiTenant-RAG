@@ -1166,3 +1166,18 @@ async def db_test(db: Session = Depends(get_db)):
     except Exception as e:
         return {"db": "FAILED", "error": str(e)}
 
+@app.post("/register-debug")
+async def register_debug(user: UserRegister, db: Session = Depends(get_db)):
+    try:
+        new_user = User(
+            username=user.username,
+            email=user.email,
+            password=pwd_context.hash(user.password),
+            full_name=user.full_name
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {"success": True, "username": new_user.username}
+    except Exception as e:
+        return {"success": False, "error": str(e), "type": type(e).__name__}
