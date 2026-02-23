@@ -12,6 +12,8 @@ langchain-huggingface
 langchain-postgres
 langchain-groq
 pypdf
-sentence-transformers
 pgvector
 PyJWT
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+sentence-transformers
