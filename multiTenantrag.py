@@ -992,10 +992,15 @@ async def register_user(user: UserRegister, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Username already exists")
         if db.query(User).filter(User.email == user.email).first():
             raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Password truncate karo 72 bytes tak
+        password_bytes = user.password.encode('utf-8')[:72]
+        hashed = pwd_context.hash(password_bytes)
+
         new_user = User(
             username=user.username,
             email=user.email,
-            password=pwd_context.hash(user.password),
+            password=hashed,
             full_name=user.full_name
         )
         db.add(new_user)
@@ -1179,4 +1184,5 @@ async def register_debug(user: UserRegister, db: Session = Depends(get_db)):
         return {"success": True, "username": new_user.username}
     except Exception as e:
         return {"success": False, "error": str(e), "type": type(e).__name__}
+
 
