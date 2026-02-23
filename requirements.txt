@@ -2,6 +2,8 @@ fastapi
 uvicorn[standard]
 sqlalchemy
 psycopg2-binary
+python-jose[cryptography]
+PyJWT
 passlib[bcrypt]
 python-multipart
 python-dotenv
@@ -13,7 +15,6 @@ langchain-postgres
 langchain-groq
 pypdf
 pgvector
-PyJWT
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 sentence-transformers
